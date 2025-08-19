@@ -6,7 +6,6 @@ require_once 'Exceptions/QueryPrepareException.php';
 require_once 'Exceptions/QueryFetchingException.php';
 
 class Database {
-    
     private $host;
     private $dbname;
     private $port;
@@ -56,7 +55,7 @@ class Database {
             Debug::setQuery($query, $bindings);
             Debug::logQuery($query);
             
-            return $this->stmt;
+            return $this;
         } catch (PDOException $e) {
             $message = "Errore con la query: {$query}";
             Debug::log($message, 'QUERY');
@@ -115,7 +114,6 @@ class Database {
     
     public function single() {
         try {
-            $this->execute();
             return empty($this->stmt) ? null : $this->stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             $message = "Errore nel fetch: {$this->stmt}";
@@ -126,7 +124,6 @@ class Database {
     
     public function all() {
         try {
-            $this->execute();
             return empty($this->stmt) ? null : $this->stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             $message = "Errore nel fetch: {$this->stmt}";
