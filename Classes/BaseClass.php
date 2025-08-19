@@ -1,19 +1,20 @@
 <?php
 
 class BaseClass {
-    private array $original = [];
-    private array $attributes = [];
-    private Database $db;
-    private string $tableName;
+    private array    $original   = [];
+    private array    $attributes = [];
+    protected Database $db;
+    private string   $tableName;
     
-    protected array $attributesDate = [];
-    protected array $attributesPhone = [];
+    protected array $checkIdBeforeFunctions = [];
+    
+    protected array $attributesDate   = [];
+    protected array $attributesPhone  = [];
     protected array $attributestMoney = [];
     
     protected string $defaultFormatDate  = 'd/m/Y';
     protected string $defaultFormatPhone = 'XXX XXX XXXX';
     protected string $defaultMoneySymbol = '€';
-    
     
     public function __construct(Database $db, string $tableName) {
         $this->db = $db;
@@ -23,7 +24,7 @@ class BaseClass {
     public function fetch($id) {
         $this->db->query("SELECT * FROM {$this->tableName} WHERE id = :id", true, [':id' => $id]);
         $fetch = $this->db->single();
-        if(!empty($fetch)) {
+        if (!empty($fetch)) {
             $this->original = $fetch;
             $this->attributes = $fetch;
             
@@ -31,7 +32,6 @@ class BaseClass {
         } else {
             return false;
         }
-        
     }
     
     public function fetchColumns($columnsName, $id = null) {
@@ -43,19 +43,19 @@ class BaseClass {
             }
         }
         
-        if(is_array($columnsName)) {
-            $columns = implode(', ', trim($columnsName));
+        if (is_array($columnsName)) {
+            $columns = trim(implode(', ', $columnsName));
         } else {
             $columns = trim($columnsName);
         }
         
-        if(empty($columns)) {
+        if (empty($columns)) {
             throw new Exception("Colonne non specificate.");
         }
         
-        $this->db->query("SELECT {$columnsName} FROM {$this->tableName} WHERE id = :id", true, [':id' => $id]);
+        $this->db->query("SELECT {$columns} FROM {$this->tableName} WHERE id = :id", true, [':id' => $id]);
         $fetch = $this->db->single();
-        if(!empty($fetch)) {
+        if (!empty($fetch)) {
             foreach ($fetch as $key => $value) {
                 $this->attributes[$key] = $value;
                 $this->original[$key] = $value;
@@ -68,7 +68,7 @@ class BaseClass {
     }
     
     public function delete() {
-        if(empty($this->original['id'])) {
+        if (empty($this->original['id'])) {
             throw new Exception("Nessun ID fornito.");
         }
         $this->db->query("DELETE FROM {$this->tableName} WHERE id = :id", true, [':id' => $this->original['id']]);
@@ -126,26 +126,26 @@ class BaseClass {
     }
     
     public function __set($key, $value) {
-        if($key == 'id') {
+        if ($key == 'id') {
             throw new Exception("Non puoi modificare l'id.");
         }
         
-        if(in_array($key, $this->attributesDate)) {
+        if (in_array($key, $this->attributesDate)) {
             $value = $this->formatDate($value, 'Y-m-d');
-        } elseif(in_array($key, $this->attributesPhone)) {
+        } elseif (in_array($key, $this->attributesPhone)) {
             $value = $this->formatPhone($value);
-        } elseif(in_array($key, $this->attributestMoney)) {
+        } elseif (in_array($key, $this->attributestMoney)) {
             $value = $this->formatMoney($value);
         }
         $this->attributes[$key] = $value;
     }
     
     public function __get($key) {
-        if(in_array($key, $this->attributesDate)) {
+        if (in_array($key, $this->attributesDate)) {
             $value = $this->formatDate($this->attributes[$key]);
-        } elseif(in_array($key, $this->attributesPhone)) {
+        } elseif (in_array($key, $this->attributesPhone)) {
             $value = $this->formatPhone($this->attributes[$key]);
-        } elseif(in_array($key, $this->attributestMoney)) {
+        } elseif (in_array($key, $this->attributestMoney)) {
             $value = $this->formatMoney($this->attributes[$key]);
         } else {
             $value = $this->attributes[$key];
@@ -155,7 +155,7 @@ class BaseClass {
     
     public function __toString() {
         $data = [];
-        if(!empty($this->attributes)) {
+        if (!empty($this->attributes)) {
             foreach ($this->attributes as $key => $value) {
                 $data[$key] = $this->__get($key);
             }
@@ -163,8 +163,19 @@ class BaseClass {
         return json_encode($data);
     }
     
+    public function __call($name, $args) {
+        $id = $this->id;
+        if(in_array($name, $this->checkIdBeforeFunctions) && empty($id)) {
+            Debug::warning("Funzione {$name}() chiamata prima di impostare ID.");
+        }
+        
+        if (method_exists($this, $name)) {
+            return call_user_func_array([$this, $name], $args);
+        }
+    }
+    
     //region Get Functions
-    public function toArray(): array {
+    public function toArray() : array {
         $data = [];
         if (!empty($this->attributes)) {
             foreach ($this->attributes as $key => $value) {
@@ -173,9 +184,10 @@ class BaseClass {
         }
         return $data;
     }
+    
     public function getDirty() {
         $dirty = [];
-        if(empty($this->original)) {
+        if (empty($this->original)) {
             return $this->attributes;
         }
         foreach ($this->attributes as $key => $value) {
@@ -187,7 +199,7 @@ class BaseClass {
     }
     
     public function getClearData($key) {
-        if(empty($key)) {
+        if (empty($key)) {
             return $this->attributes ?? null;
         }
         return $this->attributes[$key] ?? null;
@@ -214,9 +226,9 @@ class BaseClass {
             return false;
         }
         
-        $intValue = (int) $value;
+        $intValue = (int)$value;
         
-        if ((string) $intValue !== (string) $value) {
+        if ((string)$intValue !== (string)$value) {
             return false;
         }
         
@@ -229,7 +241,7 @@ class BaseClass {
     private function isValidPhone($phone) {
         $clearPhone = $this->clearPhone($phone);
         
-        if(empty($clearPhone)) {
+        if (empty($clearPhone)) {
             return false;
         }
         $regex = '/^\+?(\d{7,15})$/';
@@ -265,7 +277,7 @@ class BaseClass {
     }
     
     private function formatPhone($phone, $outputFormat = null) {
-        if(!$this->isValidPhone($phone)) {
+        if (!$this->isValidPhone($phone)) {
             return false;
         }
         $outputFormat = $outputFormat ?? $this->defaultFormatPhone;
@@ -291,7 +303,7 @@ class BaseClass {
     
     private function formatMoney($money, $symbol = null) {
         $symbol = $symbol ?? $this->defaultMoneySymbol;
-        $money = (float) str_replace(',', '.', trim($money));
+        $money = (float)str_replace(',', '.', trim($money));
         
         if (!is_numeric($money)) {
             return false;
